@@ -3,153 +3,198 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <style>
-/* Layout: a catalogue drawer. A summary strip of shelves on top, filters, then a grid of
-   book "spines" carrying library call numbers (A·07). Tapping a spine opens its record card. */
+/* Layout: three tabs. Library shows one sideways-scrolling row of covers per genre (or a dense
+   cover wall), so 235 books fit in a few screens. Tapping a cover opens its record card. */
 :root {
   --paper: #eef0ec;         /* page ground: cool grey-green, like painted shelf boards */
   --card: #fbfcf9;          /* raised surfaces */
   --ink: #1d2a2e;           /* main text */
   --ink-soft: #5b676a;      /* secondary text */
   --rule: #d5dad3;          /* hairlines */
-  --accent: #b5651d;        /* marigold-rust: actions and focus */
+  --accent: #b5651d;        /* marigold-rust: actions, selection, focus */
   --accent-ink: #ffffff;
   --read: #3d7a55;          /* status colours (semantic, separate from accent) */
   --reading: #b8860b;
-  --unread: #8a9497;
-  --spine-1: #2f5d62; --spine-2: #8c3b3b; --spine-3: #5e548e; --spine-4: #a0702a; --spine-5: #3e6b48; --spine-6: #44546a;
+  --unread: #a3acae;
+  --cov-s: 30%;             /* generated covers: hue comes from the genre */
+  --cov-l: 36%;
+  --cov-ink: #f7f4ec;
   --display: "Young Serif", Georgia, "Times New Roman", serif;
   --ui: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
   --radius: 6px;
+  --tile: 116px;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --paper: #151b1d; --card: #1e2629; --ink: #e6ebe7; --ink-soft: #9aa6a8; --rule: #2f3a3d;
     --accent: #e0954f; --accent-ink: #1a1208;
-    --read: #6fbf8b; --reading: #e2b44a; --unread: #7d898c;
-    --spine-1: #4f8a90; --spine-2: #b5625f; --spine-3: #8a80bd; --spine-4: #c99a52; --spine-5: #67a074; --spine-6: #7387a3;
+    --read: #6fbf8b; --reading: #e2b44a; --unread: #56636a;
+    --cov-s: 28%; --cov-l: 30%; --cov-ink: #f1ede4;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --paper: #151b1d; --card: #1e2629; --ink: #e6ebe7; --ink-soft: #9aa6a8; --rule: #2f3a3d;
   --accent: #e0954f; --accent-ink: #1a1208;
-  --read: #6fbf8b; --reading: #e2b44a; --unread: #7d898c;
-  --spine-1: #4f8a90; --spine-2: #b5625f; --spine-3: #8a80bd; --spine-4: #c99a52; --spine-5: #67a074; --spine-6: #7387a3;
+  --read: #6fbf8b; --reading: #e2b44a; --unread: #56636a;
+  --cov-s: 28%; --cov-l: 30%; --cov-ink: #f1ede4;
   color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
+.wrap > *, #books { min-width: 0; }
+.view { display: grid; gap: 14px; min-width: 0; }
 body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.5 var(--ui); -webkit-text-size-adjust: 100%; }
-.wrap { max-width: 1180px; margin: 0 auto; padding-inline: clamp(16px, 4vw, 32px); padding-block: 28px 64px; display: grid; gap: 24px; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-inline: clamp(16px, 4vw, 32px); padding-block: 22px 64px; display: grid; gap: 18px; }
 h1, h2, h3 { font-family: var(--display); font-weight: 400; margin: 0; text-wrap: balance; }
 button, input, textarea, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .label { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); font-weight: 600; }
 .mono { font-family: var(--mono); font-size: 12px; letter-spacing: .02em; }
+.hint { font-size: 13px; color: var(--ink-soft); margin: 0; }
 
-/* Header */
-header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px 24px; }
-header h1 { font-size: clamp(30px, 5vw, 44px); line-height: 1.05; }
-header p { margin: 6px 0 0; color: var(--ink-soft); }
+/* Header + tabs */
+header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 10px 24px; }
+header h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.05; }
+header p { margin: 4px 0 0; color: var(--ink-soft); font-size: 14px; }
 .save-mode { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-soft); }
 .save-mode i { width: 8px; height: 8px; border-radius: 50%; background: var(--unread); }
 .save-mode[data-mode="cloud"] i { background: var(--read); }
 .save-mode[data-mode="local"] i { background: var(--reading); }
-
-/* Summary */
-.summary { display: grid; grid-template-columns: minmax(0, 260px) minmax(0, 1fr); gap: 16px 32px; background: var(--card); border: 1px solid var(--rule); border-radius: var(--radius); padding: 20px; }
-.totals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; align-content: start; }
-.totals b { display: block; font-family: var(--display); font-weight: 400; font-size: 28px; line-height: 1.1; font-variant-numeric: tabular-nums; }
-.shelves { display: grid; gap: 10px; min-width: 0; }
-.shelf-row { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 10px; background: none; border: 0; padding: 4px 0; text-align: left; border-radius: 4px; }
-.shelf-row:hover .shelf-name { color: var(--accent); }
-.shelf-row[aria-pressed="true"] .shelf-name { color: var(--accent); font-weight: 600; }
-.shelf-letter { font-family: var(--mono); font-size: 13px; width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid var(--rule); border-radius: 4px; }
-.shelf-name { font-size: 14px; display: flex; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
-.bar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: color-mix(in srgb, var(--unread) 28%, transparent); }
-.bar span { display: block; height: 100%; }
-.bar .r { background: var(--read); } .bar .g { background: var(--reading); }
-.shelf-count { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--ink-soft); }
-.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--ink-soft); }
-.legend span::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; background: var(--c); }
+nav.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--rule); overflow-x: auto; }
+nav.tabs button { border: 0; background: none; padding: 10px 14px; font-size: 15px; color: var(--ink-soft); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+nav.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+nav.tabs .count { font-family: var(--mono); font-size: 11px; color: var(--ink-soft); margin-left: 6px; }
 
 /* Controls */
-.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-.search { flex: 1 1 260px; min-width: 0; position: relative; }
-.search input { width: 100%; padding: 10px 12px 10px 36px; border: 1px solid var(--rule); border-radius: var(--radius); background: var(--card); }
-.search svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; stroke: var(--ink-soft); fill: none; }
-.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: var(--radius); background: var(--card); overflow: hidden; }
-.seg button { border: 0; background: none; padding: 9px 12px; font-size: 14px; color: var(--ink-soft); }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.search { flex: 1 1 240px; min-width: 0; position: relative; }
+.search input { width: 100%; padding: 9px 12px 9px 34px; border: 1px solid var(--rule); border-radius: var(--radius); background: var(--card); }
+.search svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; stroke: var(--ink-soft); fill: none; }
+.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: var(--radius); background: var(--card); overflow: hidden; max-width: 100%; }
+.seg button { border: 0; background: none; padding: 8px 11px; font-size: 14px; color: var(--ink-soft); white-space: nowrap; }
 .seg button + button { border-left: 1px solid var(--rule); }
 .seg button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
-select { padding: 9px 10px; border: 1px solid var(--rule); border-radius: var(--radius); background: var(--card); }
-.result-line { font-size: 13px; color: var(--ink-soft); display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
-.result-line button { border: 0; background: none; color: var(--accent); padding: 0; font-size: 13px; }
+select { padding: 8px 10px; border: 1px solid var(--rule); border-radius: var(--radius); background: var(--card); max-width: 100%; }
+.shelf-chips { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.shelf-chips .label { margin-right: 4px; }
+.chip { border: 1px solid var(--rule); background: var(--card); border-radius: 4px; min-width: 32px; height: 32px; padding: 0 8px; font-family: var(--mono); font-size: 13px; color: var(--ink-soft); }
+.chip[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.result-line { font-size: 13px; color: var(--ink-soft); display: flex; gap: 12px; flex-wrap: wrap; align-items: center; min-height: 20px; }
+.linkish { border: 0; background: none; color: var(--accent); padding: 0; font-size: 13px; }
 
-/* Book grid */
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
-.book { display: grid; grid-template-columns: 8px minmax(0, 1fr); text-align: left; background: var(--card); border: 1px solid var(--rule); border-radius: var(--radius); padding: 0; overflow: hidden; transition: transform .12s ease, border-color .12s ease; }
-.book:hover { border-color: var(--ink-soft); transform: translateY(-1px); }
-.book .spine { background: var(--spine); }
-.book .body { padding: 10px 12px 11px; display: grid; gap: 4px; min-width: 0; }
-.book .top { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
-.book .title { font-family: var(--display); font-size: 16px; line-height: 1.25; overflow-wrap: anywhere; }
-.book .author { font-size: 13px; color: var(--ink-soft); overflow-wrap: anywhere; }
-.book .meta { display: flex; gap: 10px; align-items: center; font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
-.pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--c); }
-.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
-.pill[data-s="read"] { --c: var(--read); } .pill[data-s="reading"] { --c: var(--reading); } .pill[data-s="unread"] { --c: var(--unread); }
-.check { color: var(--accent); font-size: 12px; }
-.stars { letter-spacing: 1px; color: var(--reading); }
-.empty { padding: 40px 16px; text-align: center; color: var(--ink-soft); border: 1px dashed var(--rule); border-radius: var(--radius); }
+/* Covers */
+.tile { display: grid; gap: 6px; align-content: start; text-align: left; border: 0; background: none; padding: 0; width: var(--tile); min-width: 0; }
+.cover { display: block; position: relative; aspect-ratio: 2 / 3; width: 100%; max-width: 100%; border-radius: 3px 5px 5px 3px; overflow: hidden; background: hsl(var(--h) var(--cov-s) var(--cov-l)); color: var(--cov-ink); box-shadow: inset 4px 0 0 rgb(0 0 0 / .18); transition: transform .12s ease; }
+.tile:hover .cover { transform: translateY(-2px); }
+.cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.cover .gen { position: absolute; inset: 0; padding: 22px 10px 10px 12px; display: flex; flex-direction: column; justify-content: space-between; gap: 6px; }
+.cover .gen b { font-family: var(--display); font-weight: 400; font-size: 13px; line-height: 1.25; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
+.cover .gen small { font-size: 10px; opacity: .85; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.shelf-tag { position: absolute; top: 5px; left: 8px; font-family: var(--mono); font-size: 10px; padding: 1px 5px; border-radius: 3px; background: rgb(0 0 0 / .45); color: #fff; z-index: 1; }
+.dot { position: absolute; top: 6px; right: 6px; width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 0 2px rgb(255 255 255 / .85); z-index: 1; }
+.dot[data-s="read"] { background: var(--read); } .dot[data-s="reading"] { background: var(--reading); } .dot[data-s="unread"] { display: none; }
+.tile-art { position: relative; display: block; }
+.tile .t { font-size: 13px; line-height: 1.3; font-weight: 500; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.tile .a { font-size: 12px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* Record card (dialog) */
-dialog { width: min(640px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); padding: 0; border: 1px solid var(--rule); border-radius: 10px; background: var(--card); color: var(--ink); }
-dialog::backdrop { background: rgb(10 15 17 / .45); }
-.rec { display: grid; gap: 18px; padding: 22px clamp(16px, 4vw, 26px) 26px; }
-.rec-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; }
-.rec-head h2 { font-size: 26px; line-height: 1.15; }
+/* Genre overview */
+.genres { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.genre-card { display: grid; grid-template-columns: 92px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 12px; align-content: center; text-align: left; background: var(--card); border: 1px solid var(--rule); border-radius: var(--radius); padding: 12px; min-height: 104px; }
+.genre-card:hover { border-color: var(--ink-soft); }
+.genre-card .fan { grid-row: 1 / 3; position: relative; height: 78px; }
+.fan-item { position: absolute; top: 0; left: calc(var(--i) * 15px); width: 46px; transform: rotate(calc((var(--i) - 1.5) * 4deg)); box-shadow: 0 1px 3px rgb(0 0 0 / .25); border-radius: 3px; }
+.fan-item .cover .gen { padding: 6px 4px; } .fan-item .cover .gen b { font-size: 7px; } .fan-item .cover .gen small { display: none; }
+.g-name { font-family: var(--display); font-size: 17px; line-height: 1.2; align-self: end; }
+.g-meta { font-size: 13px; color: var(--ink-soft); font-variant-numeric: tabular-nums; align-self: start; margin-top: 4px; }
+.wall { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--tile), 1fr)); gap: 18px 14px; }
+.wall .tile { width: 100%; }
+.empty { padding: 36px 16px; text-align: center; color: var(--ink-soft); border: 1px dashed var(--rule); border-radius: var(--radius); }
+
+/* Lines & ideas */
+.notebook { display: grid; gap: 14px; max-width: 760px; }
+.entry { background: var(--card); border: 1px solid var(--rule); border-left: 4px solid var(--c); border-radius: var(--radius); padding: 14px 16px; display: grid; gap: 8px; }
+.entry[data-kind="line"] { --c: hsl(190 30% 38%); } .entry[data-kind="idea"] { --c: var(--accent); }
+.entry blockquote { margin: 0; font-family: var(--display); font-size: 17px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.entry[data-kind="idea"] blockquote { font-family: var(--ui); font-size: 15px; }
+.entry .src { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; color: var(--ink-soft); align-items: baseline; }
+.entry .src button { border: 0; background: none; padding: 0; color: var(--ink); font-weight: 600; text-align: left; }
+.entry .src button:hover { color: var(--accent); }
+.kind { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; font-weight: 600; color: var(--c); }
+
+/* Stats */
+.stats { display: grid; gap: 18px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.panel { background: var(--card); border: 1px solid var(--rule); border-radius: var(--radius); padding: 18px; display: grid; gap: 14px; align-content: start; min-width: 0; }
+.panel h3 { font-size: 18px; }
+.panel.wide { grid-column: 1 / -1; }
+.totals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.totals b { display: block; font-family: var(--display); font-weight: 400; font-size: 30px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.hbars { display: grid; gap: 8px; }
+.hbar { display: grid; grid-template-columns: minmax(0, 150px) minmax(0, 1fr) 52px; gap: 10px; align-items: center; font-size: 13px; }
+.hbar > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hbar .num { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-soft); }
+.track { display: flex; gap: 2px; height: 10px; }
+.track span { height: 100%; border-radius: 2px; min-width: 0; }
+.track .r { background: var(--read); } .track .g { background: var(--reading); } .track .u { background: var(--unread); opacity: .45; }
+.track .v { background: var(--accent); border-radius: 0 4px 4px 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--ink-soft); }
+.legend span::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; background: var(--c); }
+.months { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 6px; align-items: end; height: 140px; padding-top: 16px; border-bottom: 1px solid var(--rule); }
+.months div { position: relative; background: var(--accent); border-radius: 4px 4px 0 0; min-height: 0; }
+.months div span { position: absolute; top: -17px; left: 0; right: 0; text-align: center; font-size: 11px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.month-labels { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 6px; font-size: 11px; color: var(--ink-soft); text-align: center; }
+
+/* Record card */
+dialog { width: min(680px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); padding: 0; border: 1px solid var(--rule); border-radius: 10px; background: var(--card); color: var(--ink); }
+dialog::backdrop { background: rgb(10 15 17 / .5); }
+.rec { display: grid; gap: 20px; padding: 20px clamp(16px, 4vw, 26px) 26px; }
+.rec-head { display: grid; grid-template-columns: 84px minmax(0, 1fr) auto; gap: 16px; align-items: start; }
+.rec-head .cover { width: 84px; }
+.rec-head h2 { font-size: 24px; line-height: 1.15; }
 .rec-head p { margin: 4px 0 0; color: var(--ink-soft); }
+.where { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; font-size: 13px; color: var(--ink-soft); align-items: center; }
+.where select { padding: 4px 8px; font-size: 13px; }
 .close { border: 1px solid var(--rule); background: none; border-radius: 50%; width: 34px; height: 34px; font-size: 18px; line-height: 1; }
-.fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 18px; }
+.block { display: grid; gap: 8px; }
+.opts { display: flex; flex-wrap: wrap; gap: 6px; }
+.opt { border: 1px solid var(--rule); background: var(--paper); border-radius: 999px; padding: 6px 12px; font-size: 14px; color: var(--ink); }
+.opt[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
 .field { display: grid; gap: 6px; min-width: 0; }
-.field .seg { justify-self: start; }
 .field input[type="date"] { padding: 8px 10px; border: 1px solid var(--rule); border-radius: var(--radius); background: var(--paper); width: 100%; }
-.rate { display: flex; gap: 2px; }
-.rate button { border: 0; background: none; font-size: 22px; padding: 0 3px; color: var(--rule); line-height: 1; }
-.rate button.on { color: var(--reading); }
 .notes { display: grid; gap: 10px; }
 .notes h3 { font-size: 19px; }
-.note { border-left: 3px solid var(--c, var(--accent)); padding: 4px 0 4px 12px; display: grid; gap: 4px; }
-.note[data-kind="line"] { --c: var(--spine-1); } .note[data-kind="idea"] { --c: var(--accent); }
+.note { border-left: 3px solid var(--c); padding: 4px 0 4px 12px; display: grid; gap: 4px; }
+.note[data-kind="line"] { --c: hsl(190 30% 38%); } .note[data-kind="idea"] { --c: var(--accent); }
 .note blockquote { margin: 0; font-family: var(--display); font-size: 16px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
 .note[data-kind="idea"] blockquote { font-family: var(--ui); font-size: 15px; }
 .note .foot { display: flex; gap: 12px; font-size: 12px; color: var(--ink-soft); align-items: center; }
 .note .foot button { border: 0; background: none; color: var(--ink-soft); padding: 0; font-size: 12px; text-decoration: underline; }
 .note .foot button.armed { color: var(--accent); font-weight: 600; }
 .add { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--rule); border-radius: var(--radius); background: var(--paper); }
-.add textarea { width: 100%; min-height: 84px; padding: 10px; border: 1px solid var(--rule); border-radius: var(--radius); background: var(--card); resize: vertical; }
+.add textarea { width: 100%; min-height: 80px; padding: 10px; border: 1px solid var(--rule); border-radius: var(--radius); background: var(--card); resize: vertical; }
 .add-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.add-row input { width: 90px; padding: 8px 10px; border: 1px solid var(--rule); border-radius: var(--radius); background: var(--card); }
+.add-row input { width: 86px; padding: 8px 10px; border: 1px solid var(--rule); border-radius: var(--radius); background: var(--card); }
 .primary { border: 0; background: var(--accent); color: var(--accent-ink); padding: 9px 16px; border-radius: var(--radius); font-weight: 600; margin-left: auto; }
 .primary:disabled { opacity: .45; cursor: default; }
-.hint { font-size: 12px; color: var(--ink-soft); margin: 0; }
-.toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 10px 16px; border-radius: var(--radius); font-size: 14px; max-width: calc(100vw - 32px); }
+.toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 10px 16px; border-radius: var(--radius); font-size: 14px; max-width: calc(100vw - 32px); z-index: 10; }
 
-@media (max-width: 720px) {
-  .summary { grid-template-columns: minmax(0, 1fr); }
-  .totals { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .totals b { font-size: 22px; }
-}
-@media (max-width: 460px) {
+@media (max-width: 760px) {
+  .stats { grid-template-columns: minmax(0, 1fr); }
   .totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .fields { grid-template-columns: minmax(0, 1fr); }
-  .seg button { padding: 9px 9px; }
+  .hbar { grid-template-columns: minmax(0, 110px) minmax(0, 1fr) 44px; }
 }
-@media (prefers-reduced-motion: reduce) { .book { transition: none; } .book:hover { transform: none; } }
+@media (max-width: 480px) {
+  :root { --tile: 100px; }
+  .rec-head { grid-template-columns: 64px minmax(0, 1fr) auto; }
+  .rec-head .cover { width: 64px; }
+  .dates { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) { .cover { transition: none; } .tile:hover .cover { transform: none; } }
 </style>
 
 <div class="wrap">
@@ -161,39 +206,60 @@ dialog::backdrop { background: rgb(10 15 17 / .45); }
     <span class="save-mode" id="saveMode" data-mode="starting"><i></i><span>Connecting…</span></span>
   </header>
 
-  <section class="summary" aria-label="Reading summary">
-    <div class="totals" id="totals"></div>
-    <div class="shelves">
-      <div class="shelves" id="shelves"></div>
-      <div class="legend">
-        <span style="--c: var(--read)">Read</span>
-        <span style="--c: var(--reading)">Reading</span>
-        <span style="--c: color-mix(in srgb, var(--unread) 40%, transparent)">Not yet</span>
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="library" aria-selected="true">Library</button>
+    <button role="tab" data-tab="notebook" aria-selected="false">Lines &amp; ideas<span class="count" id="noteCount"></span></button>
+    <button role="tab" data-tab="stats" aria-selected="false">Stats</button>
+  </nav>
+
+  <!-- Library -->
+  <section id="view-library" class="view">
+    <div class="controls">
+      <label class="search">
+        <svg viewBox="0 0 24 24" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+        <input id="q" type="search" placeholder="Search title, author or your notes" autocomplete="off" aria-label="Search">
+      </label>
+      <select id="genre" aria-label="Genre"></select>
+      <div class="seg" id="statusFilter" role="group" aria-label="Reading status">
+        <button data-v="all" aria-pressed="true">All</button>
+        <button data-v="unread" aria-pressed="false">Not yet</button>
+        <button data-v="reading" aria-pressed="false">Reading</button>
+        <button data-v="read" aria-pressed="false">Read</button>
       </div>
     </div>
-  </section>
-
-  <section class="controls" aria-label="Find books">
-    <label class="search">
-      <svg viewBox="0 0 24 24" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
-      <input id="q" type="search" placeholder="Search title, author or your notes" autocomplete="off" aria-label="Search">
-    </label>
-    <div class="seg" id="statusFilter" role="group" aria-label="Reading status">
-      <button data-v="all" aria-pressed="true">All</button>
-      <button data-v="unread" aria-pressed="false">Not yet</button>
-      <button data-v="reading" aria-pressed="false">Reading</button>
-      <button data-v="read" aria-pressed="false">Read</button>
+    <div class="controls">
+      <div class="shelf-chips" id="shelfChips"></div>
+      <div class="seg" id="viewToggle" role="group" aria-label="Layout" style="margin-left:auto">
+        <button data-v="genres" aria-pressed="true">By genre</button>
+        <button data-v="wall" aria-pressed="false">All covers</button>
+      </div>
     </div>
-    <select id="sort" aria-label="Sort">
-      <option value="shelf">Shelf order</option>
-      <option value="title">Title A–Z</option>
-      <option value="author">Author A–Z</option>
-      <option value="recent">Recently updated</option>
-    </select>
+    <div class="result-line" id="resultLine"></div>
+    <div id="books"></div>
   </section>
 
-  <div class="result-line" id="resultLine"></div>
-  <div class="grid" id="grid"></div>
+  <!-- Lines & ideas -->
+  <section id="view-notebook" hidden>
+    <div class="view">
+      <div class="controls">
+        <label class="search">
+          <svg viewBox="0 0 24 24" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+          <input id="nq" type="search" placeholder="Search your lines and ideas" autocomplete="off" aria-label="Search lines and ideas">
+        </label>
+        <div class="seg" id="kindFilter" role="group" aria-label="Kind">
+          <button data-v="all" aria-pressed="true">All</button>
+          <button data-v="line" aria-pressed="false">Lines</button>
+          <button data-v="idea" aria-pressed="false">Ideas</button>
+        </div>
+      </div>
+      <div class="notebook" id="notebook"></div>
+    </div>
+  </section>
+
+  <!-- Stats -->
+  <section id="view-stats" hidden>
+    <div class="stats" id="stats"></div>
+  </section>
 </div>
 
 <dialog id="dlg" aria-labelledby="recTitle"></dialog>
@@ -204,26 +270,24 @@ dialog::backdrop { background: rgb(10 15 17 / .45); }
 // ---------------------------------------------------------------------------
 // Home Library app.
 // books.js holds the catalogue (what you own). This file shows it and keeps
-// your reading record for each book: status, rating, dates, lines and ideas.
+// your reading record for each book.
 // ---------------------------------------------------------------------------
 
 const BOOKS = window.BOOKS || [];
 const SHELVES = window.SHELVES || {};
+const GENRES = window.GENRES || [];
 const STATUS_LABEL = { unread: "Not yet", reading: "Reading", read: "Read" };
-const SPINES = 6;
 
-// Give each book a call number like "A·07" from its position on the shelf.
-const perShelf = {};
-BOOKS.forEach((b, i) => {
-  perShelf[b.shelf] = (perShelf[b.shelf] || 0) + 1;
-  b.callNo = b.shelf + "·" + String(perShelf[b.shelf]).padStart(2, "0");
-  b.order = i;
-  b.spine = 1 + (hash(b.id) % SPINES);
-});
+// The rating system: a verdict, what the book gave you, and whether you'd read it again.
+const VERDICTS = ["Changed me", "Loved it", "Glad I read it", "Mixed feelings", "Not for me", "Didn’t finish"];
+const GAVE = ["Ideas", "A story", "Beautiful language", "Laughs", "Comfort", "Knowledge", "A new perspective", "Craft to learn from", "Nostalgia"];
+const REREAD = ["Yes", "Maybe", "No"];
 
-// Your reading record, keyed by book id: { status, rating, started, finished, notes: [...] }
+BOOKS.forEach((b, i) => { b.order = i; });
+
+// Your reading record, keyed by book id.
 let reading = {};
-const ui = { q: "", shelf: "all", status: "all", sort: "shelf", openId: null };
+const ui = { tab: "library", q: "", genre: "all", shelf: "all", status: "all", view: "genres", nq: "", kind: "all", openId: null };
 
 // ---------------------------------------------------------------------------
 // Saving. Inside Claude, records save to your account, so the iPad and the
@@ -231,10 +295,7 @@ const ui = { q: "", shelf: "all", status: "all", sort: "shelf", openId: null };
 // ---------------------------------------------------------------------------
 const LOCAL_KEY = "home-library:reading";
 const Store = {
-  mode: "starting",
-  db: null,
-  pending: {},
-  busy: {},
+  db: null, pending: {}, busy: {},
 
   async start() {
     if (!window.claude || !window.claude.use) return this.useLocal();
@@ -262,21 +323,15 @@ const Store = {
   },
 
   setMode(mode) {
-    this.mode = mode;
-    const el = document.getElementById("saveMode");
+    const el = $("saveMode");
     el.dataset.mode = mode;
-    el.lastElementChild.textContent =
-      mode === "cloud" ? "Saved to your account" : mode === "local" ? "Saved on this device" : "Connecting…";
+    el.lastElementChild.textContent = mode === "cloud" ? "Saved to your account" : "Saved on this device";
   },
 
   save(id) {
-    if (this.db) {
-      this.pending[id] = true;
-      this.flush(id);
-    } else {
-      try { localStorage.setItem(LOCAL_KEY, JSON.stringify(reading)); }
-      catch (e) { toast("This browser isn’t letting the page save. Your change will be lost on reload."); }
-    }
+    if (this.db) { this.pending[id] = true; this.flush(id); return; }
+    try { localStorage.setItem(LOCAL_KEY, JSON.stringify(reading)); }
+    catch (e) { toast("This browser isn’t letting the page save. Your change will be lost on reload."); }
   },
 
   // One write at a time per book; a change made mid-write is sent right after.
@@ -285,21 +340,17 @@ const Store = {
     this.busy[id] = true;
     while (this.pending[id]) {
       this.pending[id] = false;
-      try {
-        if (reading[id]) await this.db.collection("reading").doc(id).set(reading[id]);
-        else await this.db.collection("reading").doc(id).delete();
-      } catch (e) {
-        toast(e && e.code === "quota_exceeded" ? "Your library storage is full." : "Couldn’t save that change. Try again in a moment.");
-      }
+      try { await this.db.collection("reading").doc(id).set(reading[id]); }
+      catch (e) { toast(e && e.code === "quota_exceeded" ? "Your library storage is full." : "Couldn’t save that change. Try again in a moment."); }
     }
     this.busy[id] = false;
   }
 };
 
-// Read a book's record as an editable copy, change it, then store it.
 function recordOf(id) {
   const r = reading[id];
-  return r ? JSON.parse(JSON.stringify(r)) : { status: "unread", rating: 0, started: "", finished: "", notes: [] };
+  const base = { status: "unread", verdict: "", gave: [], reread: "", started: "", finished: "", notes: [] };
+  return r ? Object.assign(base, JSON.parse(JSON.stringify(r))) : base;
 }
 function update(id, change) {
   const r = recordOf(id);
@@ -309,6 +360,9 @@ function update(id, change) {
   Store.save(id);
   render();
 }
+const statusOf = id => (reading[id] && reading[id].status) || "unread";
+const genreOf = b => (reading[b.id] && reading[b.id].genre) || b.genre || "Reference & Other";
+const notesOf = id => (reading[id] && reading[id].notes) || [];
 
 // ---------------------------------------------------------------------------
 // Rendering
@@ -316,92 +370,156 @@ function update(id, change) {
 const $ = id => document.getElementById(id);
 
 function render() {
-  renderSummary();
-  renderGrid();
+  const total = BOOKS.length;
+  const notes = BOOKS.reduce((n, b) => n + notesOf(b.id).length, 0);
+  $("subtitle").textContent = `${total} books · ${GENRES.length} genres · ${Object.keys(SHELVES).length} shelves`;
+  $("noteCount").textContent = notes || "";
+  if (ui.tab === "library") renderLibrary();
+  if (ui.tab === "notebook") renderNotebook();
+  if (ui.tab === "stats") renderStats();
   if (ui.openId) renderRecord(ui.openId);
 }
 
-function statusOf(id) { return (reading[id] && reading[id].status) || "unread"; }
+function genreHue(g) { return Math.round((Math.max(0, GENRES.indexOf(g)) * 360 / Math.max(1, GENRES.length) + 18) % 360); }
 
-function renderSummary() {
-  const total = BOOKS.length;
-  const count = s => BOOKS.filter(b => statusOf(b.id) === s).length;
-  const lines = BOOKS.reduce((n, b) => n + ((reading[b.id] && reading[b.id].notes) || []).length, 0);
-  const year = String(new Date().getFullYear());
-  const thisYear = BOOKS.filter(b => statusOf(b.id) === "read" && (reading[b.id].finished || "").startsWith(year)).length;
+function coverHTML(b) {
+  const img = b.cover ? `<img src="covers/${b.id}.jpg" alt="" loading="lazy">` : "";
+  return `<span class="cover" style="--h:${genreHue(genreOf(b))}">
+    <span class="gen" aria-hidden="true"><b>${esc(b.title)}</b><small>${esc(b.author)}</small></span>${img}
+  </span>`;
+}
 
-  $("subtitle").textContent = `${total} books on ${Object.keys(SHELVES).length} shelves`;
-  $("totals").innerHTML = [
-    ["Read", count("read")],
-    ["Reading now", count("reading")],
-    ["Finished in " + year, thisYear],
-    ["Lines & ideas", lines]
-  ].map(([k, v]) => `<div><b>${v}</b><span class="label">${esc(k)}</span></div>`).join("");
-
-  $("shelves").innerHTML = Object.entries(SHELVES).map(([letter, name]) => {
-    const on = BOOKS.filter(b => b.shelf === letter);
-    const r = on.filter(b => statusOf(b.id) === "read").length;
-    const g = on.filter(b => statusOf(b.id) === "reading").length;
-    const pct = n => on.length ? (n / on.length * 100).toFixed(1) + "%" : "0%";
-    return `<button class="shelf-row" data-shelf="${letter}" aria-pressed="${ui.shelf === letter}">
-      <span class="shelf-letter">${letter}</span>
-      <span><span class="shelf-name"><span>${esc(name)}</span></span>
-        <span class="bar" aria-hidden="true"><span class="r" style="width:${pct(r)}"></span><span class="g" style="width:${pct(g)}"></span></span></span>
-      <span class="shelf-count">${r}/${on.length}</span>
-    </button>`;
-  }).join("");
+function tileHTML(b) {
+  const s = statusOf(b.id);
+  return `<button class="tile" data-id="${b.id}" title="${esc(b.title)} · Shelf ${b.shelf}">
+    <span class="tile-art">
+      ${coverHTML(b)}
+      <span class="shelf-tag">${b.shelf}</span>
+      <span class="dot" data-s="${s}" aria-label="${STATUS_LABEL[s]}"></span>
+    </span>
+    <span class="t">${esc(b.title)}</span>
+    <span class="a">${esc(b.author || "Author unknown")}</span>
+  </button>`;
 }
 
 function matches(b) {
+  if (ui.genre !== "all" && genreOf(b) !== ui.genre) return false;
   if (ui.shelf !== "all" && b.shelf !== ui.shelf) return false;
   if (ui.status !== "all" && statusOf(b.id) !== ui.status) return false;
   if (!ui.q) return true;
-  const notes = ((reading[b.id] && reading[b.id].notes) || []).map(n => n.text).join(" ");
-  const hay = (b.title + " " + b.author + " " + (b.section || "") + " " + b.callNo + " " + notes).toLowerCase();
+  const hay = [b.title, b.author, genreOf(b), ...notesOf(b.id).map(n => n.text)].join(" ").toLowerCase();
   return ui.q.toLowerCase().split(/\s+/).every(w => hay.includes(w));
 }
+const byTitle = (a, b) => a.title.localeCompare(b.title);
 
-function sorted(list) {
-  const by = {
-    shelf: (a, b) => a.order - b.order,
-    title: (a, b) => a.title.localeCompare(b.title),
-    author: (a, b) => (a.author || "~").localeCompare(b.author || "~"),
-    recent: (a, b) => ((reading[b.id] || {}).updatedAt || "").localeCompare((reading[a.id] || {}).updatedAt || "") || a.order - b.order
-  }[ui.sort];
-  return list.slice().sort(by);
-}
+function renderLibrary() {
+  // Filters
+  const gSel = $("genre");
+  gSel.innerHTML = `<option value="all">All genres</option>` +
+    GENRES.map(g => `<option value="${esc(g)}" ${ui.genre === g ? "selected" : ""}>${esc(g)} (${BOOKS.filter(b => genreOf(b) === g).length})</option>`).join("");
+  $("shelfChips").innerHTML = `<span class="label">Shelf</span>` +
+    [["all", "All"], ...Object.keys(SHELVES).map(k => [k, k])].map(([k, t]) =>
+      `<button class="chip" data-shelf="${k}" aria-pressed="${ui.shelf === k}" title="${esc(k === "all" ? "All shelves" : SHELVES[k])}">${t}</button>`).join("");
 
-function renderGrid() {
-  const list = sorted(BOOKS.filter(matches));
+  const list = BOOKS.filter(matches).sort(byTitle);
   const filters = [];
-  if (ui.shelf !== "all") filters.push("Shelf " + ui.shelf + " · " + SHELVES[ui.shelf]);
+  if (ui.genre !== "all") filters.push(ui.genre);
+  if (ui.shelf !== "all") filters.push("Shelf " + ui.shelf + " (" + SHELVES[ui.shelf] + ")");
   if (ui.status !== "all") filters.push(STATUS_LABEL[ui.status]);
   if (ui.q) filters.push("“" + ui.q + "”");
-  $("resultLine").innerHTML = `<span>Showing ${list.length} of ${BOOKS.length}${filters.length ? " · " + esc(filters.join(" · ")) : ""}</span>` +
-    (filters.length ? `<button id="clear">Clear filters</button>` : "");
+  $("resultLine").innerHTML = `<span>${list.length} of ${BOOKS.length} books${filters.length ? " · " + esc(filters.join(" · ")) : ""}</span>` +
+    (ui.genre !== "all" && ui.view === "genres" ? `<button class="linkish" id="backGenres">← All genres</button>` : "") +
+    (filters.length ? `<button class="linkish" id="clear">Clear filters</button>` : "");
 
-  if (!list.length) {
-    $("grid").innerHTML = `<div class="empty">No books match. Try a different word, or clear the filters.</div>`;
+  const out = $("books");
+  if (!list.length) { out.innerHTML = `<div class="empty">No books match. Try another word, or clear the filters.</div>`; return; }
+
+  // The genre overview fits on one screen; a genre, a search or "All covers" shows a wall of covers.
+  if (ui.view === "wall" || ui.genre !== "all" || ui.q) {
+    out.innerHTML = `<div class="wall">${list.map(tileHTML).join("")}</div>`;
     return;
   }
-  $("grid").innerHTML = list.map(b => {
-    const r = reading[b.id] || {};
-    const s = r.status || "unread";
-    const n = (r.notes || []).length;
-    return `<button class="book" data-id="${b.id}" style="--spine: var(--spine-${b.spine})">
-      <span class="spine" aria-hidden="true"></span>
-      <span class="body">
-        <span class="top"><span class="mono">${b.callNo}</span><span class="pill" data-s="${s}">${STATUS_LABEL[s]}</span></span>
-        <span class="title">${esc(b.title)}</span>
-        <span class="author">${esc(b.author || "Author unknown")}</span>
-        <span class="meta">
-          ${r.rating ? `<span class="stars" aria-label="${r.rating} of 5">${"★".repeat(r.rating)}</span>` : ""}
-          ${n ? `<span>${n} ${n === 1 ? "note" : "notes"}</span>` : ""}
-          ${b.needsCheck ? `<span class="check">Needs checking</span>` : ""}
-        </span>
-      </span>
+  out.innerHTML = `<div class="genres">${GENRES.map(g => {
+    const inG = list.filter(b => genreOf(b) === g);
+    if (!inG.length) return "";
+    const read = inG.filter(b => statusOf(b.id) === "read").length;
+    const fan = inG.slice(0, 4).map((b, i) => `<span class="fan-item" style="--i:${i}">${coverHTML(b)}</span>`).join("");
+    return `<button class="genre-card" data-see="${esc(g)}">
+      <span class="fan" aria-hidden="true">${fan}</span>
+      <span class="g-name">${esc(g)}</span>
+      <span class="g-meta">${inG.length} ${inG.length === 1 ? "book" : "books"}${read ? ` · ${read} read` : ""}</span>
     </button>`;
-  }).join("");
+  }).join("")}</div>`;
+}
+
+function renderNotebook() {
+  const all = [];
+  BOOKS.forEach(b => notesOf(b.id).forEach(n => all.push({ ...n, book: b })));
+  all.sort((a, b) => (b.at || "").localeCompare(a.at || ""));
+  const words = ui.nq.toLowerCase().split(/\s+/).filter(Boolean);
+  const shown = all.filter(n =>
+    (ui.kind === "all" || n.kind === ui.kind) &&
+    words.every(w => (n.text + " " + n.book.title + " " + n.book.author).toLowerCase().includes(w)));
+
+  if (!all.length) {
+    $("notebook").innerHTML = `<div class="empty">Your lines and ideas will collect here.<br>Open any book in the Library and save a line you loved or an idea it gave you.</div>`;
+    return;
+  }
+  $("notebook").innerHTML = `<p class="hint">${shown.length} of ${all.length}</p>` + (shown.length ? shown.map(n => `
+    <article class="entry" data-kind="${n.kind}">
+      <span class="kind">${n.kind === "line" ? "Line" : "Idea"}</span>
+      <blockquote>${esc(n.text)}</blockquote>
+      <div class="src"><button data-id="${n.book.id}">${esc(n.book.title)}</button>
+        <span>${esc(n.book.author)}</span>${n.page ? `<span>p. ${esc(n.page)}</span>` : ""}<span>${fmtDate(n.at)}</span></div>
+    </article>`).join("") : `<div class="empty">Nothing matches that search.</div>`);
+}
+
+function renderStats() {
+  const year = new Date().getFullYear();
+  const count = s => BOOKS.filter(b => statusOf(b.id) === s).length;
+  const readThisYear = BOOKS.filter(b => statusOf(b.id) === "read" && (reading[b.id].finished || "").startsWith(String(year)));
+  const notes = BOOKS.reduce((n, b) => n + notesOf(b.id).length, 0);
+
+  const statusBars = (groups) => `<div class="hbars">${groups.map(([name, books]) => {
+    const r = books.filter(b => statusOf(b.id) === "read").length;
+    const g = books.filter(b => statusOf(b.id) === "reading").length;
+    const u = books.length - r - g;
+    return `<div class="hbar" title="${esc(name)}: ${r} read, ${g} reading, ${u} not yet">
+      <span>${esc(name)}</span>
+      <span class="track">${r ? `<span class="r" style="flex:${r}"></span>` : ""}${g ? `<span class="g" style="flex:${g}"></span>` : ""}${u ? `<span class="u" style="flex:${u}"></span>` : ""}</span>
+      <span class="num">${r}/${books.length}</span></div>`;
+  }).join("")}</div>`;
+  const legend = `<div class="legend"><span style="--c:var(--read)">Read</span><span style="--c:var(--reading)">Reading</span><span style="--c:var(--unread)">Not yet</span></div>`;
+
+  const months = Array.from({ length: 12 }, (_, m) =>
+    readThisYear.filter(b => Number((reading[b.id].finished || "").slice(5, 7)) === m + 1).length);
+  const maxM = Math.max(1, ...months);
+
+  const verdicts = VERDICTS.map(v => [v, BOOKS.filter(b => reading[b.id] && reading[b.id].verdict === v).length]);
+  const gave = GAVE.map(v => [v, BOOKS.filter(b => reading[b.id] && (reading[b.id].gave || []).includes(v)).length]).sort((a, b) => b[1] - a[1]);
+  const valueBars = rows => {
+    const max = Math.max(1, ...rows.map(r => r[1]));
+    return `<div class="hbars">${rows.map(([k, n]) => `<div class="hbar" title="${esc(k)}: ${n}"><span>${esc(k)}</span>
+      <span class="track">${n ? `<span class="v" style="width:${n / max * 100}%"></span>` : ""}</span><span class="num">${n}</span></div>`).join("")}</div>`;
+  };
+  const anyRated = verdicts.some(v => v[1]);
+
+  $("stats").innerHTML = `
+    <div class="panel wide"><div class="totals">
+      <div><b>${count("read")}</b><span class="label">Read</span></div>
+      <div><b>${count("reading")}</b><span class="label">Reading now</span></div>
+      <div><b>${readThisYear.length}</b><span class="label">Finished in ${year}</span></div>
+      <div><b>${notes}</b><span class="label">Lines &amp; ideas</span></div>
+    </div></div>
+    <div class="panel"><h3>By genre</h3>${legend}${statusBars(GENRES.map(g => [g, BOOKS.filter(b => genreOf(b) === g)]))}</div>
+    <div class="panel"><h3>Finished each month, ${year}</h3>
+      <div class="months">${months.map((n, i) => `<div style="height:${n / maxM * 100}%" title="${monthName(i)}: ${n}">${n ? `<span>${n}</span>` : ""}</div>`).join("")}</div>
+      <div class="month-labels">${months.map((_, i) => `<span>${monthName(i).slice(0, 1)}</span>`).join("")}</div>
+      ${readThisYear.length ? "" : `<p class="hint">Mark a book as Read and its finish date lands here.</p>`}
+      <h3 style="margin-top:8px">By shelf</h3>${statusBars(Object.entries(SHELVES).map(([k, name]) => ["Shelf " + k + " · " + name, BOOKS.filter(b => b.shelf === k)]))}
+    </div>
+    <div class="panel"><h3>Verdicts</h3>${anyRated ? valueBars(verdicts) : `<p class="hint">Give a book a verdict in its record card to see the spread here.</p>`}</div>
+    <div class="panel"><h3>What your books gave you</h3>${gave.some(g => g[1]) ? valueBars(gave) : `<p class="hint">Tick what each book gave you, and the pattern shows up here.</p>`}</div>`;
 }
 
 function renderRecord(id) {
@@ -411,48 +529,48 @@ function renderRecord(id) {
   const dlg = $("dlg");
   // Keep whatever is typed in the "add" box across re-renders.
   const draft = dlg.querySelector("#noteText") ? {
-    text: dlg.querySelector("#noteText").value,
-    page: dlg.querySelector("#notePage").value,
+    text: $("noteText").value, page: $("notePage").value,
     kind: dlg.querySelector("#noteKind [aria-pressed=true]")?.dataset.v
   } : null;
+  const opts = (group, values, isOn) => `<div class="opts" data-group="${group}">${values.map(v =>
+    `<button class="opt" data-v="${esc(v)}" aria-pressed="${isOn(v)}">${esc(v)}</button>`).join("")}</div>`;
 
   dlg.innerHTML = `<div class="rec">
     <div class="rec-head">
+      ${coverHTML(b)}
       <div>
-        <span class="mono">${b.callNo} · ${esc(SHELVES[b.shelf] || "")}${b.section ? " · " + esc(b.section) : ""}</span>
         <h2 id="recTitle">${esc(b.title)}</h2>
         <p>${esc(b.author || "Author unknown")}${b.language ? " · " + esc(b.language) : ""}</p>
-        ${b.needsCheck ? `<p class="hint">The title or author is a best guess from the photo. Correct it in books.js.</p>` : ""}
+        <div class="where">
+          <span><span class="label">Shelf ${b.shelf}</span> · ${esc(SHELVES[b.shelf] || "")}</span>
+          <label><span class="label">Genre</span>
+            <select id="recGenre">${GENRES.map(g => `<option ${genreOf(b) === g ? "selected" : ""}>${esc(g)}</option>`).join("")}</select></label>
+        </div>
+        ${b.needsCheck ? `<p class="hint" style="margin-top:8px">The title or author is a best guess from the photo.</p>` : ""}
       </div>
       <button class="close" id="close" aria-label="Close">×</button>
     </div>
 
-    <div class="fields">
-      <div class="field">
-        <span class="label">Status</span>
-        <div class="seg" id="recStatus" role="group" aria-label="Status">
-          ${["unread", "reading", "read"].map(s => `<button data-v="${s}" aria-pressed="${r.status === s}">${STATUS_LABEL[s]}</button>`).join("")}
-        </div>
-      </div>
-      <div class="field">
-        <span class="label">Your rating</span>
-        <div class="rate" id="recRate">
-          ${[1, 2, 3, 4, 5].map(n => `<button data-v="${n}" class="${n <= (r.rating || 0) ? "on" : ""}" aria-label="${n} star${n > 1 ? "s" : ""}">★</button>`).join("")}
-        </div>
-      </div>
+    <div class="block"><span class="label">Status</span>
+      ${opts("status", ["unread", "reading", "read"].map(s => STATUS_LABEL[s]), v => STATUS_LABEL[r.status] === v)}</div>
+    <div class="block"><span class="label">Verdict</span>
+      ${opts("verdict", VERDICTS, v => r.verdict === v)}</div>
+    <div class="block"><span class="label">What it gave me</span>
+      ${opts("gave", GAVE, v => (r.gave || []).includes(v))}</div>
+    <div class="block"><span class="label">Would I read it again?</span>
+      ${opts("reread", REREAD, v => r.reread === v)}</div>
+    <div class="dates">
       <label class="field"><span class="label">Started</span><input type="date" id="recStarted" value="${esc(r.started || "")}"></label>
       <label class="field"><span class="label">Finished</span><input type="date" id="recFinished" value="${esc(r.finished || "")}"></label>
     </div>
 
     <div class="notes">
       <h3>Lines &amp; ideas</h3>
-      ${(r.notes || []).length ? r.notes.map(n => `
+      ${r.notes.length ? r.notes.map(n => `
         <div class="note" data-kind="${n.kind}">
           <blockquote>${esc(n.text)}</blockquote>
-          <div class="foot">
-            <span>${n.kind === "line" ? "Line" : "Idea"}${n.page ? " · p. " + esc(n.page) : ""} · ${fmtDate(n.at)}</span>
-            <button data-del="${n.id}">Delete</button>
-          </div>
+          <div class="foot"><span>${n.kind === "line" ? "Line" : "Idea"}${n.page ? " · p. " + esc(n.page) : ""} · ${fmtDate(n.at)}</span>
+            <button data-del="${n.id}">Delete</button></div>
         </div>`).join("") : `<p class="hint">Nothing saved yet. Add a line you loved or an idea the book gave you.</p>`}
       <div class="add">
         <textarea id="noteText" placeholder="Type or paste a line from the book, or write down an idea"></textarea>
@@ -469,8 +587,7 @@ function renderRecord(id) {
   </div>`;
 
   if (draft) {
-    $("noteText").value = draft.text;
-    $("notePage").value = draft.page;
+    $("noteText").value = draft.text; $("notePage").value = draft.page;
     setKind(draft.kind || "line");
     $("addNote").disabled = !draft.text.trim();
   }
@@ -479,7 +596,6 @@ function renderRecord(id) {
 function setKind(kind) {
   document.querySelectorAll("#noteKind button").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.v === kind)));
 }
-
 function openRecord(id) {
   ui.openId = id;
   const dlg = $("dlg");
@@ -487,32 +603,51 @@ function openRecord(id) {
   renderRecord(id);
   if (!dlg.open) dlg.showModal();
 }
+function pressOne(groupEl, value) {
+  groupEl.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.v === value)));
+}
 
 // ---------------------------------------------------------------------------
 // Events
 // ---------------------------------------------------------------------------
-$("q").addEventListener("input", e => { ui.q = e.target.value.trim(); renderGrid(); });
-$("sort").addEventListener("change", e => { ui.sort = e.target.value; renderGrid(); });
+document.querySelector("nav.tabs").addEventListener("click", e => {
+  const t = e.target.closest("[data-tab]"); if (!t) return;
+  ui.tab = t.dataset.tab;
+  document.querySelectorAll("nav.tabs [data-tab]").forEach(x => x.setAttribute("aria-selected", String(x === t)));
+  ["library", "notebook", "stats"].forEach(v => { $("view-" + v).hidden = v !== ui.tab; });
+  render();
+});
+$("q").addEventListener("input", e => { ui.q = e.target.value.trim(); renderLibrary(); });
+$("genre").addEventListener("change", e => { ui.genre = e.target.value; renderLibrary(); });
 $("statusFilter").addEventListener("click", e => {
   const btn = e.target.closest("button"); if (!btn) return;
-  ui.status = btn.dataset.v;
-  $("statusFilter").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === btn)));
-  renderGrid();
+  ui.status = btn.dataset.v; pressOne($("statusFilter"), ui.status); renderLibrary();
 });
-$("shelves").addEventListener("click", e => {
-  const row = e.target.closest(".shelf-row"); if (!row) return;
-  ui.shelf = ui.shelf === row.dataset.shelf ? "all" : row.dataset.shelf;
-  render();
+$("viewToggle").addEventListener("click", e => {
+  const btn = e.target.closest("button"); if (!btn) return;
+  ui.view = btn.dataset.v; pressOne($("viewToggle"), ui.view); renderLibrary();
 });
-$("resultLine").addEventListener("click", e => {
-  if (e.target.id !== "clear") return;
-  ui.q = ""; ui.shelf = "all"; ui.status = "all";
-  $("q").value = "";
-  $("statusFilter").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.v === "all")));
-  render();
+$("shelfChips").addEventListener("click", e => {
+  const c = e.target.closest("[data-shelf]"); if (!c) return;
+  ui.shelf = c.dataset.shelf; renderLibrary();
 });
-$("grid").addEventListener("click", e => {
-  const card = e.target.closest(".book"); if (card) openRecord(card.dataset.id);
+$("view-library").addEventListener("click", e => {
+  if (e.target.id === "clear") {
+    Object.assign(ui, { q: "", genre: "all", shelf: "all", status: "all" });
+    $("q").value = ""; pressOne($("statusFilter"), "all"); renderLibrary(); return;
+  }
+  if (e.target.id === "backGenres") { ui.genre = "all"; renderLibrary(); return; }
+  const see = e.target.closest("[data-see]");
+  if (see) { ui.genre = see.dataset.see; renderLibrary(); window.scrollTo({ top: 0 }); return; }
+  const tile = e.target.closest(".tile"); if (tile) openRecord(tile.dataset.id);
+});
+$("nq").addEventListener("input", e => { ui.nq = e.target.value.trim(); renderNotebook(); });
+$("kindFilter").addEventListener("click", e => {
+  const btn = e.target.closest("button"); if (!btn) return;
+  ui.kind = btn.dataset.v; pressOne($("kindFilter"), ui.kind); renderNotebook();
+});
+$("notebook").addEventListener("click", e => {
+  const b = e.target.closest("[data-id]"); if (b) openRecord(b.dataset.id);
 });
 
 const dlg = $("dlg");
@@ -523,17 +658,21 @@ dlg.addEventListener("click", e => {
   const t = e.target;
   if (t.closest("#close")) return dlg.close();
 
-  const st = t.closest("#recStatus button");
-  if (st) {
+  const opt = t.closest(".opt");
+  if (opt) {
+    const group = opt.parentElement.dataset.group, v = opt.dataset.v;
     const today = new Date().toISOString().slice(0, 10);
     return update(id, r => {
-      r.status = st.dataset.v;
-      if (r.status === "reading" && !r.started) r.started = today;
-      if (r.status === "read" && !r.finished) r.finished = today;
+      if (group === "status") {
+        r.status = Object.keys(STATUS_LABEL).find(k => STATUS_LABEL[k] === v);
+        if (r.status === "reading" && !r.started) r.started = today;
+        if (r.status === "read" && !r.finished) r.finished = today;
+      }
+      if (group === "verdict") r.verdict = r.verdict === v ? "" : v;
+      if (group === "reread") r.reread = r.reread === v ? "" : v;
+      if (group === "gave") r.gave = r.gave.includes(v) ? r.gave.filter(x => x !== v) : [...r.gave, v];
     });
   }
-  const star = t.closest("#recRate button");
-  if (star) return update(id, r => { const v = Number(star.dataset.v); r.rating = r.rating === v ? 0 : v; });
 
   const kind = t.closest("#noteKind button");
   if (kind) return setKind(kind.dataset.v);
@@ -542,18 +681,18 @@ dlg.addEventListener("click", e => {
     const text = $("noteText").value.trim(); if (!text) return;
     const note = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      kind: document.querySelector("#noteKind [aria-pressed=true]").dataset.v,
+      kind: dlg.querySelector("#noteKind [aria-pressed=true]").dataset.v,
       text, page: $("notePage").value.trim(), at: new Date().toISOString()
     };
     $("noteText").value = ""; $("notePage").value = "";
-    return update(id, r => { r.notes = [...(r.notes || []), note]; });
+    return update(id, r => { r.notes = [...r.notes, note]; });
   }
 
   // Deleting needs two taps: the first arms the button, the second deletes.
   const del = t.closest("[data-del]");
   if (del) {
     if (!del.classList.contains("armed")) { del.classList.add("armed"); del.textContent = "Tap again to delete"; return; }
-    return update(id, r => { r.notes = (r.notes || []).filter(n => n.id !== del.dataset.del); });
+    return update(id, r => { r.notes = r.notes.filter(n => n.id !== del.dataset.del); });
   }
 });
 dlg.addEventListener("input", e => {
@@ -561,9 +700,13 @@ dlg.addEventListener("input", e => {
 });
 dlg.addEventListener("change", e => {
   const id = ui.openId; if (!id) return;
+  const b = BOOKS.find(x => x.id === id);
   if (e.target.id === "recStarted") update(id, r => { r.started = e.target.value; });
   if (e.target.id === "recFinished") update(id, r => { r.finished = e.target.value; });
+  if (e.target.id === "recGenre") update(id, r => { if (e.target.value === b.genre) delete r.genre; else r.genre = e.target.value; });
 });
+// A cover image that fails to load falls back to the generated cover underneath.
+document.addEventListener("error", e => { if (e.target.tagName === "IMG" && e.target.closest(".cover")) e.target.remove(); }, true);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -571,7 +714,7 @@ dlg.addEventListener("change", e => {
 function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
-function hash(s) { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; }
+function monthName(i) { return new Date(2000, i, 1).toLocaleDateString(undefined, { month: "short" }); }
 function fmtDate(iso) {
   try { return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }); }
   catch (e) { return ""; }
